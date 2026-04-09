@@ -63,26 +63,6 @@ jobs:
             RELEASE_TYPE="Stable（正式版）"
           fi
 
-          USER_PROMPT=$(cat <<'PROMPT_EOF'
-          請將以下 Claude Code 更新日誌翻譯成繁體中文。
-          PROMPT_EOF
-          )
-
-          USER_PROMPT="請將以下 Claude Code 更新日誌翻譯成繁體中文。
-
-          版本：${TAG}
-          發布類型：${RELEASE_TYPE}
-          發布日期：${PUBLISHED}
-
-          ---原文開始---
-          ${BODY}
-          ---原文結束---
-
-          輸出格式要求：
-          - 只輸出翻譯後的繁體中文內容
-          - 完整保留所有 Markdown 格式
-          - 不輸出任何前言、說明或備註"
-
           SYSTEM_PROMPT='你是一位專業的技術文件翻譯員，專門將 Anthropic Claude Code 的英文更新日誌翻譯成繁體中文。
 
           翻譯規則：
@@ -94,6 +74,33 @@ jobs:
           6. 翻譯語氣專業且自然，適合開發者閱讀
           7. 不添加任何原文沒有的內容，不省略任何段落
           8. 如遇到無法確認的專有名詞，優先保留英文而非強行翻譯'
+
+          USER_PROMPT_TEMPLATE='請將以下 Claude Code 更新日誌翻譯成繁體中文。
+
+          版本：TAG_PLACEHOLDER
+          發布類型：RELEASE_TYPE_PLACEHOLDER
+          發布日期：PUBLISHED_PLACEHOLDER
+
+          ---原文開始---
+          BODY_PLACEHOLDER
+          ---原文結束---
+
+          輸出格式要求：
+          - 只輸出翻譯後的繁體中文內容
+          - 完整保留所有 Markdown 格式
+          - 不輸出任何前言、說明或備註'
+
+          USER_PROMPT=$(jq -n \
+            --arg template "$USER_PROMPT_TEMPLATE" \
+            --arg tag "$TAG" \
+            --arg release_type "$RELEASE_TYPE" \
+            --arg published "$PUBLISHED" \
+            --arg body "$BODY" \
+            '$template
+              | gsub("TAG_PLACEHOLDER"; $tag)
+              | gsub("RELEASE_TYPE_PLACEHOLDER"; $release_type)
+              | gsub("PUBLISHED_PLACEHOLDER"; $published)
+              | gsub("BODY_PLACEHOLDER"; $body)')
 
           REQUEST_BODY=$(jq -n \
             --arg model "claude-sonnet-4-6" \
@@ -112,14 +119,31 @@ jobs:
               ]
             }')
 
-          RESPONSE=$(curl -s \
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
             -H "Content-Type: application/json" \
             -H "x-api-key: ${ANTHROPIC_API_KEY}" \
             -H "anthropic-version: 2023-06-01" \
             -d "$REQUEST_BODY" \
             https://api.anthropic.com/v1/messages)
 
-          TRANSLATED=$(echo "$RESPONSE" | jq -r '.content[0].text')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Claude API HTTP status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Claude API returned HTTP $HTTP_CODE"
+            echo "$RESPONSE_BODY" | jq . 2>/dev/null || echo "$RESPONSE_BODY"
+            exit 1
+          fi
+
+          TRANSLATED=$(echo "$RESPONSE_BODY" | jq -r '.content[0].text')
+
+          if [ "$TRANSLATED" = "null" ] || [ -z "$TRANSLATED" ]; then
+            echo "::error::Claude API response missing content"
+            echo "$RESPONSE_BODY" | jq .
+            exit 1
+          fi
 
           EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "translated<<$EOF_MARKER" >> "$GITHUB_OUTPUT"
