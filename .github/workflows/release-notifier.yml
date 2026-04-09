@@ -47,6 +47,25 @@ jobs:
             echo "New tag detected: ${{ steps.fetch.outputs.tag }}"
           fi
 
+      - name: Verify secrets
+        if: steps.check.outputs.skip == 'false'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is empty or not set"
+            exit 1
+          else
+            echo "ANTHROPIC_API_KEY is set (length: ${#ANTHROPIC_API_KEY})"
+          fi
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "::error::DISCORD_WEBHOOK_URL secret is empty or not set"
+            exit 1
+          else
+            echo "DISCORD_WEBHOOK_URL is set (length: ${#DISCORD_WEBHOOK_URL})"
+          fi
+
       - name: Translate with Claude API
         id: translate
         if: steps.check.outputs.skip == 'false'
