@@ -6,11 +6,20 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
-  notify:
+  prepare-translation:
     runs-on: ubuntu-latest
+    environment: ANTHROPIC_API_KEY
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      tag: ${{ steps.fetch.outputs.tag }}
+      published: ${{ steps.fetch.outputs.published }}
+      is_prerelease: ${{ steps.fetch.outputs.is_prerelease }}
+      url: ${{ steps.fetch.outputs.url }}
+      translated: ${{ steps.translate.outputs.translated }}
     steps:
       - name: Fetch latest release
         id: fetch
@@ -47,23 +56,16 @@ jobs:
             echo "New tag detected: ${{ steps.fetch.outputs.tag }}"
           fi
 
-      - name: Verify secrets
+      - name: Verify Anthropic secret
         if: steps.check.outputs.skip == 'false'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "::error::ANTHROPIC_API_KEY secret is empty or not set"
             exit 1
           else
             echo "ANTHROPIC_API_KEY is set (length: ${#ANTHROPIC_API_KEY})"
-          fi
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "::error::DISCORD_WEBHOOK_URL secret is empty or not set"
-            exit 1
-          else
-            echo "DISCORD_WEBHOOK_URL is set (length: ${#DISCORD_WEBHOOK_URL})"
           fi
 
       - name: Translate with Claude API
@@ -169,15 +171,31 @@ jobs:
           echo "$TRANSLATED" >> "$GITHUB_OUTPUT"
           echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
 
-      - name: Send to Discord
-        if: steps.check.outputs.skip == 'false'
+  notify-discord:
+    needs: prepare-translation
+    if: needs.prepare-translation.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    environment: DISCORD_WEBHOOK_URL
+    steps:
+      - name: Verify Discord secret
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          TAG: ${{ steps.fetch.outputs.tag }}
-          URL: ${{ steps.fetch.outputs.url }}
-          PUBLISHED: ${{ steps.fetch.outputs.published }}
-          IS_PRERELEASE: ${{ steps.fetch.outputs.is_prerelease }}
-          TRANSLATED: ${{ steps.translate.outputs.translated }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "::error::DISCORD_WEBHOOK_URL secret is empty or not set"
+            exit 1
+          else
+            echo "DISCORD_WEBHOOK_URL is set (length: ${#DISCORD_WEBHOOK_URL})"
+          fi
+
+      - name: Send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TAG: ${{ needs.prepare-translation.outputs.tag }}
+          URL: ${{ needs.prepare-translation.outputs.url }}
+          PUBLISHED: ${{ needs.prepare-translation.outputs.published }}
+          IS_PRERELEASE: ${{ needs.prepare-translation.outputs.is_prerelease }}
+          TRANSLATED: ${{ needs.prepare-translation.outputs.translated }}
         run: |
           if [ "$IS_PRERELEASE" = "true" ]; then
             COLOR=16776960
@@ -227,10 +245,9 @@ jobs:
             "$DISCORD_WEBHOOK_URL"
 
       - name: Update last notified tag
-        if: steps.check.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh variable set LAST_NOTIFIED_TAG \
-            --body "${{ steps.fetch.outputs.tag }}" \
+            --body "${{ needs.prepare-translation.outputs.tag }}" \
             --repo "${{ github.repository }}"
