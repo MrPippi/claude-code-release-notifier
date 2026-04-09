@@ -245,9 +245,12 @@ jobs:
             "$DISCORD_WEBHOOK_URL"
 
       - name: Update last notified tag
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh variable set LAST_NOTIFIED_TAG \
+          if ! gh variable set LAST_NOTIFIED_TAG \
             --body "${{ needs.prepare-translation.outputs.tag }}" \
-            --repo "${{ github.repository }}"
+            --repo "${{ github.repository }}"; then
+            echo "::warning::Failed to update LAST_NOTIFIED_TAG (likely missing variable write permission for GITHUB_TOKEN)."
+          fi
