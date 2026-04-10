@@ -55,12 +55,7 @@ jobs:
           if JSON=$(gh api "repos/${REPO}/contents/${MARKER_PATH}" 2>/dev/null); then
             LAST=$(echo "$JSON" | jq -r '.content' | tr -d '\n' | base64 -d | tr -d '\r\n' || true)
           fi
-          EOF_DELIM="M_$(dd if=/dev/urandom bs=15 count=1 status=none | base64 | tr -d '/+=' | cut -c1-20)"
-          {
-            echo "last<<${EOF_DELIM}"
-            printf '%s\n' "$LAST"
-            echo "${EOF_DELIM}"
-          } >> "$GITHUB_OUTPUT"
+          echo "last=$LAST" >> "$GITHUB_OUTPUT"
 
       - name: Check if already notified
         id: check
