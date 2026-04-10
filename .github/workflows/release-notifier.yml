@@ -5,7 +5,7 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
-# GITHUB_TOKEN cannot PATCH repository Actions variables (403). Use VARIABLES_WRITE_TOKEN (PAT) in the update step only.
+# Track last notified tag in-repo; GITHUB_TOKEN can update contents but not repository Actions variables (403).
 permissions:
   contents: read
 
@@ -43,17 +43,37 @@ jobs:
           echo "$RESPONSE" | jq -r '.body' >> "$GITHUB_OUTPUT"
           echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
 
+      - name: Read last notified marker
+        id: marker
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          MARKER_PATH=".github/last-notified-tag"
+          LAST=""
+          if JSON=$(gh api "repos/${REPO}/contents/${MARKER_PATH}" 2>/dev/null); then
+            LAST=$(echo "$JSON" | jq -r '.content' | tr -d '\n' | base64 -d | tr -d '\r\n' || true)
+          fi
+          EOF_DELIM="M_$(dd if=/dev/urandom bs=15 count=1 status=none | base64 | tr -d '/+=' | cut -c1-20)"
+          {
+            echo "last<<${EOF_DELIM}"
+            printf '%s\n' "$LAST"
+            echo "${EOF_DELIM}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Check if already notified
         id: check
         env:
-          LAST_NOTIFIED_TAG: ${{ vars.LAST_NOTIFIED_TAG }}
+          FETCH_TAG: ${{ steps.fetch.outputs.tag }}
+          LAST_NOTIFIED_TAG: ${{ steps.marker.outputs.last }}
         run: |
-          if [ "${{ steps.fetch.outputs.tag }}" = "$LAST_NOTIFIED_TAG" ]; then
+          if [ "$FETCH_TAG" = "$LAST_NOTIFIED_TAG" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Tag ${{ steps.fetch.outputs.tag }} already notified. Skipping."
+            echo "Tag $FETCH_TAG already notified. Skipping."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "New tag detected: ${{ steps.fetch.outputs.tag }}"
+            echo "New tag detected: $FETCH_TAG"
           fi
 
       - name: Verify Anthropic secret
@@ -175,6 +195,8 @@ jobs:
     needs: prepare-translation
     if: needs.prepare-translation.outputs.skip == 'false'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     environment: DISCORD_WEBHOOK_URL
     steps:
       - name: Verify Discord secret
@@ -244,14 +266,27 @@ jobs:
             -d "$PAYLOAD" \
             "$DISCORD_WEBHOOK_URL"
 
-      - name: Update last notified tag
+      - name: Update last notified marker file
         env:
-          GH_TOKEN: ${{ secrets.VARIABLES_WRITE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::error::Missing secret VARIABLES_WRITE_TOKEN. Add a fine-grained PAT with this repo only: Repository permissions > Variables: Read and write (Metadata: Read). Classic PAT needs repo scope. GITHUB_TOKEN is not allowed to update repository Actions variables."
-            exit 1
+          set -euo pipefail
+          TAG="${{ needs.prepare-translation.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          MARKER_PATH=".github/last-notified-tag"
+          CONTENT_B64=$(printf '%s' "$TAG" | base64 -w0)
+          SHA=""
+          if JSON=$(gh api "repos/${REPO}/contents/${MARKER_PATH}" 2>/dev/null); then
+            SHA=$(echo "$JSON" | jq -r '.sha // empty')
           fi
-          gh variable set LAST_NOTIFIED_TAG \
-            --body "${{ needs.prepare-translation.outputs.tag }}" \
-            --repo "${{ github.repository }}"
+          MSG="chore(actions): record last notified Claude Code ${TAG}"
+          if [ -n "$SHA" ]; then
+            gh api --method PUT "repos/${REPO}/contents/${MARKER_PATH}" \
+              -f message="$MSG" \
+              -f content="$CONTENT_B64" \
+              -f sha="$SHA"
+          else
+            gh api --method PUT "repos/${REPO}/contents/${MARKER_PATH}" \
+              -f message="$MSG" \
+              -f content="$CONTENT_B64"
+          fi
