@@ -1,8 +1,9 @@
 name: Claude Code Release Notifier
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  # Auto-publish disabled: hourly schedule commented out, manual dispatch only.
+  # schedule:
+  #   - cron: '0 * * * *'
   workflow_dispatch:
 
 # Track last notified tag in-repo; GITHUB_TOKEN can update contents but not repository Actions variables (403).
