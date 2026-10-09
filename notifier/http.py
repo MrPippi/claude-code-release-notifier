@@ -37,7 +37,7 @@ Transport = Callable[[urllib.request.Request, float], Response]
 
 def default_transport(req: urllib.request.Request, timeout: float) -> Response:
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return Response(resp.status, resp.read())
     except urllib.error.HTTPError as err:
         return Response(err.code, err.read())

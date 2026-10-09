@@ -29,7 +29,9 @@ class FakeHttp:
 
 def test_read_state_ok() -> None:
     body = {"content": encoded({"last_tag": "v2", "last_published_at": "x", "updated_at": "y"})}
-    http = FakeHttp({("GET", f"{CONTENTS_URL}?ref=state"): Response(200, json.dumps(body).encode())})
+    http = FakeHttp(
+        {("GET", f"{CONTENTS_URL}?ref=state"): Response(200, json.dumps(body).encode())}
+    )
 
     assert read_state("me/fork", "state", "tok", http=http) == State("v2", "x", "y")
 
@@ -42,7 +44,9 @@ def test_read_state_missing_returns_none() -> None:
 
 def test_read_state_malformed_raises() -> None:
     body = {"content": encoded({"unexpected": True})}
-    http = FakeHttp({("GET", f"{CONTENTS_URL}?ref=state"): Response(200, json.dumps(body).encode())})
+    http = FakeHttp(
+        {("GET", f"{CONTENTS_URL}?ref=state"): Response(200, json.dumps(body).encode())}
+    )
 
     with pytest.raises(StateError, match="malformed"):
         read_state("me/fork", "state", "tok", http=http)
@@ -58,7 +62,9 @@ def test_read_state_server_error_raises() -> None:
 def test_write_state_updates_existing_file() -> None:
     http = FakeHttp(
         {
-            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/state"): Response(200, b"{}"),
+            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/state"): Response(
+                200, b"{}"
+            ),
             ("GET", f"{CONTENTS_URL}?ref=state"): Response(200, b'{"sha": "abc"}'),
             ("PUT", CONTENTS_URL): Response(200, b"{}"),
         }
@@ -80,7 +86,9 @@ def test_write_state_updates_existing_file() -> None:
 def test_write_state_creates_file_on_existing_branch() -> None:
     http = FakeHttp(
         {
-            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/state"): Response(200, b"{}"),
+            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/state"): Response(
+                200, b"{}"
+            ),
             ("GET", f"{CONTENTS_URL}?ref=state"): Response(404, b"{}"),
             ("PUT", CONTENTS_URL): Response(201, b"{}"),
         }
@@ -120,7 +128,9 @@ def test_write_state_creates_orphan_branch() -> None:
 def test_write_state_failure_raises() -> None:
     http = FakeHttp(
         {
-            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/state"): Response(200, b"{}"),
+            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/state"): Response(
+                200, b"{}"
+            ),
             ("GET", f"{CONTENTS_URL}?ref=state"): Response(404, b"{}"),
             ("PUT", CONTENTS_URL): Response(409, b"{}"),
         }
