@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- README translations in Simplified Chinese, Japanese and Korean, with a language
+  switcher at the top of every README.
+
 ## [2.0.0] - 2026-10-09
 
 The notifier was rebuilt so anyone can fork and run their own copy.

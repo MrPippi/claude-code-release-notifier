@@ -3,7 +3,7 @@
 [![CI](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/ci.yml/badge.svg)](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 
-[English](../README.md)
+[English](../README.md) | **繁體中文** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 監控 [anthropics/claude-code](https://github.com/anthropics/claude-code) 的 Release，透過
 Claude API 把更新日誌翻譯成繁體中文，再發送到 Discord 頻道。整個流程跑在你自己 fork 的

@@ -3,7 +3,7 @@
 [![CI](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/ci.yml/badge.svg)](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[繁體中文說明](docs/README.zh-TW.md)
+**English** | [繁體中文](docs/README.zh-TW.md) | [简体中文](docs/README.zh-CN.md) | [日本語](docs/README.ja.md) | [한국어](docs/README.ko.md)
 
 Watches [anthropics/claude-code](https://github.com/anthropics/claude-code) releases,
 translates the release notes into Traditional Chinese with the Claude API, and posts them
