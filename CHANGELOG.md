@@ -18,7 +18,10 @@ The notifier was rebuilt so anyone can fork and run their own copy.
   `MAX_RELEASES_PER_RUN`, `CLAUDE_MODEL`, `STATE_BRANCH`.
 - `NOTIFIER_ENABLED` gate for the hourly schedule.
 - `dry_run` option for manual runs.
-- Catch-up: every release published since the last run is announced, oldest first.
+- Catch-up: every release published since the last run is announced, oldest first,
+  following pagination when the backlog is long.
+- Hash-pinned runtime dependencies (`requirements.in` → `requirements.txt`).
+- GET requests retry network errors and timeouts.
 - Refusal fallback (`fallbacks: "default"`) for supported Claude models.
 - CI (ruff, pytest, actionlint), Dependabot, issue and PR templates, `SECURITY.md`,
   `CONTRIBUTING.md`.

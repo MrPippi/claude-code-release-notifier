@@ -42,13 +42,21 @@ def run(
 ) -> int:
     token = config.github_token
     state = read_state(config.repository, config.state_branch, token, http=http)
-    releases = fetch_releases(config.source_repo, token, config.include_prereleases, http=http)
-    selected = select_new(releases, state.last_published_at if state else None, config.max_releases)
+    releases = fetch_releases(
+        config.source_repo,
+        token,
+        config.include_prereleases,
+        stop_after=state.last_published_at if state else None,
+        http=http,
+    )
+    last = (state.last_published_at, state.last_tag) if state else None
+    selected = select_new(releases, last, config.max_releases)
     if not selected:
         log(f"No new releases since {state.last_tag if state else 'start'}.")
         return 0
 
     log(f"Notifying {len(selected)} release(s): {', '.join(r.tag for r in selected)}")
+    state_sha: str | None = None
     for release in selected:
         payload = build_payload(release, translate(release, config.model, client=client))
         if config.dry_run:
@@ -56,11 +64,12 @@ def run(
             log(json.dumps(payload, ensure_ascii=False, indent=2))
             continue
         post_embed(config.discord_webhook_url, payload, http=http)
-        write_state(
+        state_sha = write_state(
             config.repository,
             config.state_branch,
             token,
             state_from_release(release, now()),
+            sha=state_sha,
             http=http,
         )
         log(f"Notified {release.tag}")

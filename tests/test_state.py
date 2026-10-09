@@ -66,11 +66,11 @@ def test_write_state_updates_existing_file() -> None:
                 200, b"{}"
             ),
             ("GET", f"{CONTENTS_URL}?ref=state"): Response(200, b'{"sha": "abc"}'),
-            ("PUT", CONTENTS_URL): Response(200, b"{}"),
+            ("PUT", CONTENTS_URL): Response(200, b'{"content": {"sha": "new1"}}'),
         }
     )
 
-    write_state("me/fork", "state", "tok", STATE, http=http)
+    assert write_state("me/fork", "state", "tok", STATE, http=http) == "new1"
 
     method, _, body = http.calls[-1]
     assert method == "PUT"
@@ -90,11 +90,11 @@ def test_write_state_creates_file_on_existing_branch() -> None:
                 200, b"{}"
             ),
             ("GET", f"{CONTENTS_URL}?ref=state"): Response(404, b"{}"),
-            ("PUT", CONTENTS_URL): Response(201, b"{}"),
+            ("PUT", CONTENTS_URL): Response(201, b'{"content": {"sha": "new2"}}'),
         }
     )
 
-    write_state("me/fork", "state", "tok", STATE, http=http)
+    assert write_state("me/fork", "state", "tok", STATE, http=http) == "new2"
 
     assert "sha" not in http.calls[-1][2]
 
@@ -111,7 +111,7 @@ def test_write_state_creates_orphan_branch() -> None:
         }
     )
 
-    write_state("me/fork", "state", "tok", STATE, http=http)
+    assert write_state("me/fork", "state", "tok", STATE, http=http) == "blob1"
 
     posts = {url.rsplit("/", 1)[-1]: body for method, url, body in http.calls if method == "POST"}
     assert posts["trees"]["tree"][0] == {
@@ -144,3 +144,26 @@ def test_state_from_release() -> None:
     rel = Release("v9", "v9", "", "u", "2026-02-01T00:00:00Z", False)
 
     assert state_from_release(rel, "now") == State("v9", "2026-02-01T00:00:00Z", "now")
+
+
+def test_write_state_with_known_sha_skips_lookups() -> None:
+    http = FakeHttp({("PUT", CONTENTS_URL): Response(200, b'{"content": {"sha": "next"}}')})
+
+    assert write_state("me/fork", "state", "tok", STATE, sha="prev", http=http) == "next"
+    assert [(m, body["sha"]) for m, _, body in http.calls] == [("PUT", "prev")]
+
+
+def test_branch_name_is_url_encoded() -> None:
+    http = FakeHttp(
+        {
+            ("GET", f"{CONTENTS_URL}?ref=team%2Fstate"): Response(404, b"{}"),
+            ("GET", "https://api.github.com/repos/me/fork/git/ref/heads/team/state"): Response(
+                200, b"{}"
+            ),
+            ("PUT", CONTENTS_URL): Response(201, b'{"content": {"sha": "s"}}'),
+        }
+    )
+
+    assert read_state("me/fork", "team/state", "tok", http=http) is None
+    write_state("me/fork", "team/state", "tok", STATE, http=http)
+    assert http.calls[-1][2]["branch"] == "team/state"

@@ -88,7 +88,7 @@ Anthropic 帳戶；沒有新版本的執行不會呼叫 Claude。
 |---|---|
 | `::error::ANTHROPIC_API_KEY is required but not set` | 補上 secret（步驟 3） |
 | `::error::DISCORD_WEBHOOK_URL is required but not set` | 補上 secret，或用 **dry_run** 執行 |
-| `Creating state branch (...) failed with HTTP 403` | 到 **Settings → Actions → General → Workflow permissions** 允許讀寫，或檢查 workflow 的 `contents: write` 權限是否被移除 |
+| `Creating state branch (...) failed with HTTP 403` | Workflow 拿不到 `contents: write` 權限。確認 `notify.yml` 仍有宣告這個權限，且組織政策沒有在 **Settings → Actions → General → Workflow permissions** 把 token 限制為唯讀 |
 | 排程沒有執行 | 確認 `NOTIFIER_ENABLED` 為 `true`。repo 超過 60 天沒有活動時 GitHub 也會暫停排程，到 Actions 分頁重新啟用即可 |
 | 想重新通知某個版本 | 修改或刪除 `notifier-state` branch 上的 `state.json`。刪除後下次執行只會通知最新的一版 |
 
@@ -97,7 +97,7 @@ Anthropic 帳戶；沒有新版本的執行不會呼叫 Claude。
 請參考 [CONTRIBUTING.md](../CONTRIBUTING.md)。簡要步驟：
 
 ```bash
-pip install -r requirements-dev.txt
+pip install --require-hashes -r requirements.txt -r requirements-dev.txt
 ruff check . && ruff format --check .
 pytest --cov=notifier
 ```

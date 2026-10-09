@@ -108,7 +108,38 @@ def test_network_error_raises_without_url_leak() -> None:
     transport = FakeTransport(urllib.error.URLError("boom"))
 
     with pytest.raises(HttpError) as excinfo:
-        request("GET", "https://secret.example/hook", transport=transport, sleep=no_sleep)
+        request("POST", "https://secret.example/hook", transport=transport, sleep=no_sleep)
 
     assert excinfo.value.status is None
     assert "secret.example" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "error", [TimeoutError("timed out"), ConnectionResetError("reset"), urllib.error.URLError("x")]
+)
+def test_get_retries_network_errors(error: Exception) -> None:
+    sleeps: list[float] = []
+    transport = FakeTransport(error, Response(200, b"{}"))
+
+    response = request("GET", "https://x", transport=transport, sleep=sleeps.append)
+
+    assert response.status == 200
+    assert sleeps == [1]
+
+
+def test_get_network_errors_exhausted_raise() -> None:
+    transport = FakeTransport(*[TimeoutError("timed out")] * 4)
+
+    with pytest.raises(HttpError) as excinfo:
+        request("GET", "https://x", transport=transport, sleep=no_sleep, retries=3)
+
+    assert excinfo.value.status is None
+
+
+def test_post_network_error_is_not_retried() -> None:
+    transport = FakeTransport(TimeoutError("timed out"), Response(204, b""))
+
+    with pytest.raises(HttpError, match="POST request failed"):
+        request("POST", "https://x", transport=transport, sleep=no_sleep)
+
+    assert len(transport.requests) == 1

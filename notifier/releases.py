@@ -8,7 +8,12 @@ from typing import Any
 
 from notifier.http import GITHUB_API, HttpError, Response, github_headers, request
 
-RELEASES_PER_PAGE = 50
+RELEASES_PER_PAGE = 100
+# Upper bound on pagination: 1,000 releases is far more than any realistic backlog.
+MAX_PAGES = 10
+
+# Position of a release in the notification order: (published_at, tag).
+Cursor = tuple[str, str]
 
 
 @dataclass(frozen=True)
@@ -44,28 +49,54 @@ def fetch_releases(
     token: str,
     include_prereleases: bool,
     *,
+    stop_after: str | None,
     http: Callable[..., Response] = request,
 ) -> list[Release]:
-    url = f"{GITHUB_API}/repos/{source_repo}/releases?per_page={RELEASES_PER_PAGE}"
+    """List releases newest first, paging until one published at or before `stop_after`.
+
+    With `stop_after=None` (no state yet) only the first page is needed.
+    """
+    items: list[dict[str, Any]] = []
+    for page in range(1, MAX_PAGES + 1):
+        batch = _fetch_page(source_repo, token, page, http)
+        items = [*items, *batch]
+        reached_state = stop_after is None or any(
+            entry.get("published_at") and entry["published_at"] <= stop_after for entry in batch
+        )
+        if reached_state or len(batch) < RELEASES_PER_PAGE:
+            break
+    return parse_releases(items, include_prereleases)
+
+
+def _fetch_page(
+    source_repo: str, token: str, page: int, http: Callable[..., Response]
+) -> list[dict[str, Any]]:
+    url = f"{GITHUB_API}/repos/{source_repo}/releases?per_page={RELEASES_PER_PAGE}&page={page}"
     response = http("GET", url, headers=github_headers(token))
     if response.status != 200:
         raise HttpError(
             f"Listing releases of {source_repo} failed with HTTP {response.status}",
             status=response.status,
         )
-    return parse_releases(response.json(), include_prereleases)
+    return response.json()
 
 
 def select_new(
-    releases: Sequence[Release], last_published_at: str | None, max_releases: int
+    releases: Sequence[Release], last: Cursor | None, max_releases: int
 ) -> list[Release]:
-    """Releases newer than the last notified one, oldest first, at most `max_releases`.
+    """Releases after `last`, oldest first, at most `max_releases`.
 
-    Without previous state only the newest release is returned, so a fresh fork does not
-    flood the channel with history.
+    Releases are ordered by (published_at, tag) so two releases published in the same
+    second are never lost when the per-run cap falls between them. Without previous
+    state only the newest release is returned, so a fresh fork does not flood the
+    channel with history.
     """
-    ordered = sorted(releases, key=lambda r: (r.published_at, r.tag))
-    if last_published_at is None:
+    ordered = sorted(releases, key=cursor_of)
+    if last is None:
         return ordered[-1:]
-    newer = [r for r in ordered if r.published_at > last_published_at]
+    newer = [r for r in ordered if cursor_of(r) > last]
     return newer[:max_releases]
+
+
+def cursor_of(release: Release) -> Cursor:
+    return (release.published_at, release.tag)

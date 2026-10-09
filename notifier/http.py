@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import time
 import urllib.error
@@ -13,6 +14,9 @@ from typing import Any
 MAX_RETRY_AFTER_SECONDS = 60.0
 DEFAULT_TIMEOUT_SECONDS = 30.0
 USER_AGENT = "claude-code-release-notifier"
+# Network failures worth retrying. Only idempotent GETs are retried: a POST that timed
+# out may already have been delivered, and retrying it could post to Discord twice.
+NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException)
 
 
 class HttpError(Exception):
@@ -64,8 +68,11 @@ def request(
         req = urllib.request.Request(url, data=data, headers=all_headers, method=method)
         try:
             response = transport(req, timeout)
-        except urllib.error.URLError as err:
-            raise HttpError(f"{method} request failed: {err.reason}") from None
+        except NETWORK_ERRORS as err:
+            if method != "GET" or attempt == retries:
+                raise HttpError(f"{method} request failed: {_describe(err)}") from None
+            sleep(float(2**attempt))
+            continue
 
         if not _is_retryable(response.status):
             return response
@@ -77,6 +84,11 @@ def request(
         f"{method} request failed with HTTP {response.status} after {retries} retries",
         status=response.status,
     )
+
+
+def _describe(err: Exception) -> str:
+    reason = err.reason if isinstance(err, urllib.error.URLError) else err
+    return f"{type(err).__name__}: {reason}"
 
 
 def _is_retryable(status: int) -> bool:

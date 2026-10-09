@@ -13,6 +13,8 @@ DEFAULT_MAX_RELEASES = 5
 MAX_RELEASES_LIMIT = 20
 
 _REPO_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+# Conservative subset of git ref names: safe in URLs and API paths without surprises.
+_BRANCH_PATTERN = re.compile(r"^(?!-)(?!.*\.\.)(?!.*/$)[A-Za-z0-9._/-]+$")
 _TRUE_VALUES = frozenset({"true", "1", "yes"})
 _FALSE_VALUES = frozenset({"false", "0", "no"})
 
@@ -49,7 +51,7 @@ def load_config(env: Mapping[str, str]) -> Config:
         include_prereleases=_parse_bool(env, "INCLUDE_PRERELEASES", default=True),
         max_releases=_parse_max_releases(env),
         model=_get(env, "CLAUDE_MODEL", default=DEFAULT_MODEL),
-        state_branch=_get(env, "STATE_BRANCH", default=DEFAULT_STATE_BRANCH),
+        state_branch=_parse_branch(env),
         repository=_parse_repo(env, "GITHUB_REPOSITORY", default=""),
         github_token=_require_value(_get(env, "GITHUB_TOKEN", default=""), "GITHUB_TOKEN"),
         anthropic_api_key=_require_value(
@@ -96,3 +98,12 @@ def _parse_max_releases(env: Mapping[str, str]) -> int:
             f"MAX_RELEASES_PER_RUN must be an integer from 1 to {MAX_RELEASES_LIMIT}, got {raw!r}"
         )
     return int(raw)
+
+
+def _parse_branch(env: Mapping[str, str]) -> str:
+    value = _get(env, "STATE_BRANCH", default=DEFAULT_STATE_BRANCH)
+    if not _BRANCH_PATTERN.match(value):
+        raise ConfigError(
+            f"STATE_BRANCH may only contain letters, digits, '.', '_', '-' and '/', got {value!r}"
+        )
+    return value

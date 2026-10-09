@@ -48,7 +48,7 @@ notifier/
   translate.py  # Claude call, refusal/max_tokens handling
   discord.py    # embed build, truncation, post
 tests/          # one test module per notifier module
-requirements.txt / requirements-dev.txt / pyproject.toml
+requirements.in → requirements.txt (pip-compile, hash-pinned) / requirements-dev.txt / pyproject.toml
 README.md, docs/README.zh-TW.md, SECURITY.md, CONTRIBUTING.md, CHANGELOG.md
 ```
 
@@ -79,11 +79,13 @@ out-of-range max, non-boolean flags, missing secrets.
 
 1. `load_config(os.environ)` → `Config` (frozen).
 2. `read_state(...)` → `State | None` from `STATE_BRANCH:state.json` (404 → `None`).
-3. `fetch_releases(...)` → `GET /repos/{SOURCE_REPO}/releases?per_page=50`, drafts dropped,
+3. `fetch_releases(...)` → `GET /repos/{SOURCE_REPO}/releases?per_page=100&page=N`, paging
+   (max 10 pages) until a release at or before the stored state appears; drafts dropped,
    pre-releases dropped unless enabled.
 4. `select_new(releases, state, max)`:
    - `state is None` → `[newest]`
-   - else releases with `published_at > state.last_published_at`, ascending, first `max`.
+   - else releases with `(published_at, tag) > (state.last_published_at, state.last_tag)`,
+     ascending, first `max`.
      Leftovers go out on later runs, so nothing is skipped.
 5. Per release, in order: `translate` → `post_embed` → `write_state(release)`.
    State is written after each success so a mid-batch failure never re-sends earlier posts.

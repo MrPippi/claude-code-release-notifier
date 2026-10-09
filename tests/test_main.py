@@ -32,15 +32,21 @@ class Recorder:
     ):
         self.posts: list[dict[str, Any]] = []
         self.states: list[State] = []
+        self.shas_in: list[str | None] = []
         self.logs: list[str] = []
         self.fail_post_for: str | None = None
         monkeypatch.setattr(entry, "read_state", lambda *a, **k: state)
         monkeypatch.setattr(entry, "fetch_releases", lambda *a, **k: releases)
         monkeypatch.setattr(entry, "translate", lambda r, model, client: f"譯:{r.tag}")
         monkeypatch.setattr(entry, "post_embed", self._post)
-        monkeypatch.setattr(
-            entry, "write_state", lambda repo, br, tok, s, http: self.states.append(s)
-        )
+        monkeypatch.setattr(entry, "write_state", self._write)
+
+    def _write(
+        self, repo: str, branch: str, token: str, state: State, sha: str | None, http: Any
+    ) -> str:
+        self.states.append(state)
+        self.shas_in.append(sha)
+        return f"sha-{state.last_tag}"
 
     def _post(self, url: str, payload: dict[str, Any], http: Any) -> None:
         title = payload["embeds"][0]["title"]
@@ -68,6 +74,7 @@ def test_posts_each_new_release_in_order(monkeypatch: pytest.MonkeyPatch) -> Non
     assert [p["embeds"][0]["description"] for p in rec.posts] == ["譯:v2", "譯:v3"]
     assert [s.last_tag for s in rec.states] == ["v2", "v3"]
     assert rec.states[0].updated_at == "NOW"
+    assert rec.shas_in == [None, "sha-v2"]
 
 
 def test_dry_run_skips_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:

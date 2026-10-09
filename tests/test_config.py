@@ -107,3 +107,16 @@ def test_errors_never_leak_secrets() -> None:
         load_config(env(DISCORD_WEBHOOK_URL="http://secret-hook-value"))
 
     assert "secret-hook-value" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("raw", ["feature/state", "state_v2", "notifier.state"])
+def test_valid_state_branch(raw: str) -> None:
+    assert load_config(env(STATE_BRANCH=raw)).state_branch == raw
+
+
+@pytest.mark.parametrize(
+    "raw", ["a#b", "a&b", "with space", "-leading", "a..b", "trailing/", "x+y"]
+)
+def test_bad_state_branch_rejected(raw: str) -> None:
+    with pytest.raises(ConfigError, match="STATE_BRANCH"):
+        load_config(env(STATE_BRANCH=raw))

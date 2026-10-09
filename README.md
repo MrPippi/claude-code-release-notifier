@@ -94,7 +94,7 @@ request, billed to your Anthropic account. Runs with no new release don't call C
 |---|---|
 | `::error::ANTHROPIC_API_KEY is required but not set` | Add the secret (step 3) |
 | `::error::DISCORD_WEBHOOK_URL is required but not set` | Add the secret, or run with **dry_run** |
-| `Creating state branch (...) failed with HTTP 403` | **Settings → Actions → General → Workflow permissions** must allow read and write, or the workflow's `contents: write` permission was removed |
+| `Creating state branch (...) failed with HTTP 403` | The workflow could not get `contents: write`. Check that `notify.yml` still requests it, and that no organization policy under **Settings → Actions → General → Workflow permissions** limits tokens to read-only |
 | Scheduled runs are skipped | Set `NOTIFIER_ENABLED` to `true`. GitHub also pauses schedules in repositories with no activity for 60 days; re-enable the workflow in the Actions tab |
 | You want to re-announce a release | Edit or delete `state.json` on the `notifier-state` branch. Deleting it makes the next run announce only the newest release |
 
@@ -103,7 +103,7 @@ request, billed to your Anthropic account. Runs with no new release don't call C
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install --require-hashes -r requirements.txt -r requirements-dev.txt
 ruff check . && ruff format --check .
 pytest --cov=notifier
 ```

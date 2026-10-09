@@ -9,7 +9,15 @@ Requires Python 3.12 or newer.
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install --require-hashes -r requirements.txt
 pip install -r requirements-dev.txt
+```
+
+Runtime dependencies are pinned with hashes. To change one, edit `requirements.in`, then
+regenerate the lock file:
+
+```bash
+pip-compile --generate-hashes --strip-extras requirements.in
 ```
 
 ## Checks

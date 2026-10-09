@@ -7,6 +7,7 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import Any
+from urllib.parse import quote
 
 from notifier.http import GITHUB_API, Response, github_headers, request
 from notifier.releases import Release
@@ -50,23 +51,39 @@ def read_state(repository: str, branch: str, token: str, *, http: Http = request
 
 
 def write_state(
-    repository: str, branch: str, token: str, state: State, *, http: Http = request
-) -> None:
+    repository: str,
+    branch: str,
+    token: str,
+    state: State,
+    *,
+    sha: str | None = None,
+    http: Http = request,
+) -> str:
+    """Write state and return the new blob sha of state.json.
+
+    Pass the sha returned by the previous call to skip the lookups; the contents API can
+    serve a stale sha right after a write, which would make the next PUT fail.
+    """
     content = json.dumps(asdict(state), indent=2, ensure_ascii=False) + "\n"
     message = f"chore(state): record {state.last_tag}"
-    if _branch_exists(repository, branch, token, http):
-        _put_file(repository, branch, token, content, message, http)
-    else:
-        _create_orphan_branch(repository, branch, token, content, message, http)
+    if sha is not None:
+        return _put_file(repository, branch, token, content, message, sha, http)
+    if not _branch_exists(repository, branch, token, http):
+        return _create_orphan_branch(repository, branch, token, content, message, http)
+    existing = _get_contents(repository, branch, token, http)
+    if existing.status == 404:
+        return _put_file(repository, branch, token, content, message, None, http)
+    _expect(existing, "Reading state")
+    return _put_file(repository, branch, token, content, message, existing.json()["sha"], http)
 
 
 def _get_contents(repository: str, branch: str, token: str, http: Http) -> Response:
-    url = f"{GITHUB_API}/repos/{repository}/contents/{STATE_FILE}?ref={branch}"
+    url = f"{GITHUB_API}/repos/{repository}/contents/{STATE_FILE}?ref={quote(branch, safe='')}"
     return http("GET", url, headers=github_headers(token))
 
 
 def _branch_exists(repository: str, branch: str, token: str, http: Http) -> bool:
-    url = f"{GITHUB_API}/repos/{repository}/git/ref/heads/{branch}"
+    url = f"{GITHUB_API}/repos/{repository}/git/ref/heads/{quote(branch, safe='/')}"
     response = http("GET", url, headers=github_headers(token))
     if response.status == 404:
         return False
@@ -75,25 +92,30 @@ def _branch_exists(repository: str, branch: str, token: str, http: Http) -> bool
 
 
 def _put_file(
-    repository: str, branch: str, token: str, content: str, message: str, http: Http
-) -> None:
-    existing = _get_contents(repository, branch, token, http)
-    if existing.status != 404:
-        _expect(existing, "Reading state")
+    repository: str,
+    branch: str,
+    token: str,
+    content: str,
+    message: str,
+    sha: str | None,
+    http: Http,
+) -> str:
     body: dict[str, Any] = {
         "message": message,
         "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
         "branch": branch,
     }
-    if existing.status != 404:
-        body = {**body, "sha": existing.json()["sha"]}
+    if sha is not None:
+        body = {**body, "sha": sha}
     url = f"{GITHUB_API}/repos/{repository}/contents/{STATE_FILE}"
-    _expect(http("PUT", url, headers=github_headers(token), json_body=body), "Writing state")
+    response = http("PUT", url, headers=github_headers(token), json_body=body)
+    _expect(response, "Writing state")
+    return response.json()["content"]["sha"]
 
 
 def _create_orphan_branch(
     repository: str, branch: str, token: str, content: str, message: str, http: Http
-) -> None:
+) -> str:
     git_api = f"{GITHUB_API}/repos/{repository}/git"
     headers = github_headers(token)
 
@@ -109,6 +131,7 @@ def _create_orphan_branch(
     )
     commit = post("commits", {"message": message, "tree": tree["sha"], "parents": []})
     post("refs", {"ref": f"refs/heads/{branch}", "sha": commit["sha"]})
+    return blob["sha"]
 
 
 def _expect(response: Response, action: str) -> None:
