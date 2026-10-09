@@ -1,0 +1,30 @@
+name: Bug report
+description: Something in the notifier does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste API keys, webhook URLs or full workflow logs that might contain them.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: The `::error::` line and a few lines around it from the Actions run.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Repository variables
+      description: Values of SOURCE_REPO, INCLUDE_PRERELEASES, MAX_RELEASES_PER_RUN, CLAUDE_MODEL, STATE_BRANCH (no secrets).
+  - type: input
+    id: version
+    attributes:
+      label: Notifier version or commit

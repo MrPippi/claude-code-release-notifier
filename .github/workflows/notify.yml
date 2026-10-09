@@ -1,0 +1,55 @@
+name: Release Notifier
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Translate and print embeds without posting or saving state'
+        type: boolean
+        default: true
+
+# Scheduled runs only do work once the repository variable NOTIFIER_ENABLED is "true",
+# so a fresh fork stays quiet until its secrets are configured.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-notifier
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: github.event_name == 'workflow_dispatch' || vars.NOTIFIER_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # writes state.json on the state branch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Notify
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SOURCE_REPO: ${{ vars.SOURCE_REPO }}
+          INCLUDE_PRERELEASES: ${{ vars.INCLUDE_PRERELEASES }}
+          MAX_RELEASES_PER_RUN: ${{ vars.MAX_RELEASES_PER_RUN }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          STATE_BRANCH: ${{ vars.STATE_BRANCH }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python -m notifier
