@@ -6,7 +6,8 @@ from typing import Any
 
 import anthropic
 
-from notifier.prompts import SYSTEM_PROMPT, build_user_prompt
+from notifier.locales import Locale
+from notifier.prompts import build_system_prompt, build_user_prompt
 from notifier.releases import Release
 
 MAX_TOKENS = 16000
@@ -26,12 +27,12 @@ def make_client(api_key: str) -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=api_key)
 
 
-def translate(release: Release, model: str, *, client: Any) -> str:
+def translate(release: Release, model: str, *, locale: Locale, client: Any) -> str:
     request: dict[str, Any] = {
         "model": model,
         "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": build_user_prompt(release)}],
+        "system": build_system_prompt(locale),
+        "messages": [{"role": "user", "content": build_user_prompt(release, locale)}],
         "output_config": {"effort": EFFORT},
     }
     if model in FALLBACK_MODELS:

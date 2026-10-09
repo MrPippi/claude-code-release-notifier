@@ -6,6 +6,8 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from notifier.locales import DEFAULT_LOCALE, LOCALES, Locale, find_locale
+
 DEFAULT_SOURCE_REPO = "anthropics/claude-code"
 DEFAULT_MODEL = "claude-sonnet-5-5"
 DEFAULT_STATE_BRANCH = "notifier-state"
@@ -35,6 +37,7 @@ class Config:
     anthropic_api_key: str
     discord_webhook_url: str
     dry_run: bool
+    locale: Locale
 
 
 def load_config(env: Mapping[str, str]) -> Config:
@@ -59,6 +62,7 @@ def load_config(env: Mapping[str, str]) -> Config:
         ),
         discord_webhook_url=webhook,
         dry_run=dry_run,
+        locale=_parse_locale(env),
     )
 
 
@@ -107,3 +111,11 @@ def _parse_branch(env: Mapping[str, str]) -> str:
             f"STATE_BRANCH may only contain letters, digits, '.', '_', '-' and '/', got {value!r}"
         )
     return value
+
+
+def _parse_locale(env: Mapping[str, str]) -> Locale:
+    value = _get(env, "TARGET_LANGUAGE", default=DEFAULT_LOCALE)
+    locale = find_locale(value)
+    if locale is None:
+        raise ConfigError(f"TARGET_LANGUAGE must be one of {', '.join(LOCALES)}, got {value!r}")
+    return locale

@@ -6,8 +6,8 @@
 **English** | [繁體中文](docs/README.zh-TW.md) | [简体中文](docs/README.zh-CN.md) | [日本語](docs/README.ja.md) | [한국어](docs/README.ko.md)
 
 Watches [anthropics/claude-code](https://github.com/anthropics/claude-code) releases,
-translates the release notes into Traditional Chinese with the Claude API, and posts them
-to a Discord channel. It runs entirely on GitHub Actions in your own fork: no server, no
+translates the release notes with the Claude API (Traditional Chinese by default), and
+posts them to a Discord channel. It runs entirely on GitHub Actions in your own fork: no server, no
 database.
 
 ## How it works
@@ -78,10 +78,10 @@ runs. Empty values use the default.
 | `MAX_RELEASES_PER_RUN` | `5` | Most releases announced per run (1–20). Any extra go out on the next run |
 | `CLAUDE_MODEL` | `claude-sonnet-5-5` | Claude model used for translation |
 | `STATE_BRANCH` | `notifier-state` | Branch that stores `state.json` |
+| `TARGET_LANGUAGE` | `zh-TW` | Language to translate into: `zh-TW` (Traditional Chinese), `zh-CN` (Simplified Chinese), `ja` (Japanese) or `ko` (Korean) |
 
-To translate into another language, edit the prompts in
-[`notifier/prompts.py`](notifier/prompts.py) and the labels in
-[`notifier/discord.py`](notifier/discord.py).
+To add another language, add an entry to [`notifier/locales.py`](notifier/locales.py)
+with the language name and the Discord labels.
 
 ## Costs
 

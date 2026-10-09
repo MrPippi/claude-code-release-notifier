@@ -6,7 +6,7 @@
 [English](../README.md) | [繁體中文](README.zh-TW.md) | **简体中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 监控 [anthropics/claude-code](https://github.com/anthropics/claude-code) 的 Release，通过
-Claude API 把更新日志翻译成繁体中文，再发送到 Discord 频道。整个流程运行在你自己 fork 的
+Claude API 翻译更新日志（默认为繁体中文），再发送到 Discord 频道。整个流程运行在你自己 fork 的
 GitHub Actions 上，不需要服务器，也不需要数据库。
 
 ## 工作原理
@@ -74,9 +74,10 @@ gh secret set DISCORD_WEBHOOK_URL -R <你的账号>/claude-code-release-notifier
 | `MAX_RELEASES_PER_RUN` | `5` | 每次运行最多通知几个版本（1–20），超出的留到下次 |
 | `CLAUDE_MODEL` | `claude-sonnet-5-5` | 翻译使用的 Claude 模型 |
 | `STATE_BRANCH` | `notifier-state` | 存放 `state.json` 的分支 |
+| `TARGET_LANGUAGE` | `zh-TW` | 翻译的目标语言：`zh-TW`（繁体中文）、`zh-CN`（简体中文）、`ja`（日语）或 `ko`（韩语） |
 
-想翻译成其他语言，修改 [`notifier/prompts.py`](../notifier/prompts.py) 中的 prompt 和
-[`notifier/discord.py`](../notifier/discord.py) 中的标签文字即可。
+想添加其他语言，在 [`notifier/locales.py`](../notifier/locales.py) 中添加一条语言名称和
+Discord 标签文字即可。
 
 ## 费用
 

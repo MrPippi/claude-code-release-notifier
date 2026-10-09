@@ -8,8 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `TARGET_LANGUAGE` variable to choose the translation language: `zh-TW` (default),
+  `zh-CN`, `ja` or `ko`. Discord labels follow the chosen language.
 - README translations in Simplified Chinese, Japanese and Korean, with a language
   switcher at the top of every README.
+
+### Changed
+
+- Translation prompts are now English templates filled in with the target language.
+  Adding a language only needs a new entry in `notifier/locales.py`.
 
 ## [2.0.0] - 2026-10-09
 

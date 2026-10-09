@@ -24,5 +24,6 @@ source = ["notifier"]
 branch = true
 
 [tool.ruff.lint.per-file-ignores]
-# Prompt text keeps its natural line breaks.
+# Prompt and label text keeps its natural line breaks.
 "notifier/prompts.py" = ["E501"]
+"notifier/locales.py" = ["E501"]

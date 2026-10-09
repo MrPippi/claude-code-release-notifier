@@ -58,7 +58,8 @@ def run(
     log(f"Notifying {len(selected)} release(s): {', '.join(r.tag for r in selected)}")
     state_sha: str | None = None
     for release in selected:
-        payload = build_payload(release, translate(release, config.model, client=client))
+        translated = translate(release, config.model, locale=config.locale, client=client)
+        payload = build_payload(release, translated, config.locale)
         if config.dry_run:
             log(f"[dry run] {release.tag} payload:")
             log(json.dumps(payload, ensure_ascii=False, indent=2))

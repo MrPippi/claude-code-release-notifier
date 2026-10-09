@@ -6,6 +6,7 @@ import pytest
 from notifier import __main__ as entry
 from notifier.config import Config
 from notifier.discord import DiscordError
+from notifier.locales import LOCALES
 from notifier.releases import Release
 from notifier.state import State
 
@@ -20,6 +21,7 @@ CONFIG = Config(
     anthropic_api_key="key",
     discord_webhook_url="https://discord.com/api/webhooks/1/x",
     dry_run=False,
+    locale=LOCALES["zh-TW"],
 )
 R1 = Release("v1", "v1", "one", "u1", "2026-01-01T00:00:00Z", False)
 R2 = Release("v2", "v2", "two", "u2", "2026-01-02T00:00:00Z", False)
@@ -37,7 +39,7 @@ class Recorder:
         self.fail_post_for: str | None = None
         monkeypatch.setattr(entry, "read_state", lambda *a, **k: state)
         monkeypatch.setattr(entry, "fetch_releases", lambda *a, **k: releases)
-        monkeypatch.setattr(entry, "translate", lambda r, model, client: f"譯:{r.tag}")
+        monkeypatch.setattr(entry, "translate", lambda r, model, locale, client: f"譯:{r.tag}")
         monkeypatch.setattr(entry, "post_embed", self._post)
         monkeypatch.setattr(entry, "write_state", self._write)
 

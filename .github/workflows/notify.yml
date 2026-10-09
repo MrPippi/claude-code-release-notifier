@@ -51,5 +51,6 @@ jobs:
           MAX_RELEASES_PER_RUN: ${{ vars.MAX_RELEASES_PER_RUN }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           STATE_BRANCH: ${{ vars.STATE_BRANCH }}
+          TARGET_LANGUAGE: ${{ vars.TARGET_LANGUAGE }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: python -m notifier

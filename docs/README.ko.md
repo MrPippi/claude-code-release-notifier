@@ -6,7 +6,7 @@
 [English](../README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | **한국어**
 
 [anthropics/claude-code](https://github.com/anthropics/claude-code)의 릴리스를 감시하고,
-Claude API로 릴리스 노트를 번체 중국어로 번역해 Discord 채널에 게시합니다. 모든 작업이
+Claude API로 릴리스 노트를 번역해(기본값은 번체 중국어) Discord 채널에 게시합니다. 모든 작업이
 여러분의 fork에 있는 GitHub Actions에서 실행되므로 서버나 데이터베이스가 필요 없습니다.
 
 ## 동작 방식
@@ -78,9 +78,10 @@ gh secret set DISCORD_WEBHOOK_URL -R <사용자명>/claude-code-release-notifier
 | `MAX_RELEASES_PER_RUN` | `5` | 한 번 실행에 알리는 최대 릴리스 수 (1–20). 나머지는 다음 실행에 게시 |
 | `CLAUDE_MODEL` | `claude-sonnet-5-5` | 번역에 사용할 Claude 모델 |
 | `STATE_BRANCH` | `notifier-state` | `state.json`을 저장하는 브랜치 |
+| `TARGET_LANGUAGE` | `zh-TW` | 번역할 언어: `zh-TW`(번체 중국어), `zh-CN`(간체 중국어), `ja`(일본어), `ko`(한국어) |
 
-다른 언어로 번역하려면 [`notifier/prompts.py`](../notifier/prompts.py)의 프롬프트와
-[`notifier/discord.py`](../notifier/discord.py)의 라벨을 수정하세요.
+다른 언어를 추가하려면 [`notifier/locales.py`](../notifier/locales.py)에 언어 이름과
+Discord 라벨을 추가하세요.
 
 ## 비용
 

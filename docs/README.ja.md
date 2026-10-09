@@ -6,7 +6,8 @@
 [English](../README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md) | **日本語** | [한국어](README.ko.md)
 
 [anthropics/claude-code](https://github.com/anthropics/claude-code) のリリースを監視し、
-Claude API でリリースノートを繁体字中国語に翻訳して Discord チャンネルに投稿します。
+Claude API でリリースノートを翻訳し（デフォルトは繁体字中国語）、Discord チャンネルに
+投稿します。
 すべて自分の fork の GitHub Actions 上で動作するため、サーバーもデータベースも不要です。
 
 ## 仕組み
@@ -77,9 +78,10 @@ gh secret set DISCORD_WEBHOOK_URL -R <あなたのアカウント>/claude-code-r
 | `MAX_RELEASES_PER_RUN` | `5` | 1 回の実行で通知する最大件数（1–20）。残りは次回に投稿 |
 | `CLAUDE_MODEL` | `claude-sonnet-5-5` | 翻訳に使う Claude モデル |
 | `STATE_BRANCH` | `notifier-state` | `state.json` を保存するブランチ |
+| `TARGET_LANGUAGE` | `zh-TW` | 翻訳先の言語：`zh-TW`（繁体字中国語）、`zh-CN`（簡体字中国語）、`ja`（日本語）、`ko`（韓国語） |
 
-別の言語に翻訳したい場合は、[`notifier/prompts.py`](../notifier/prompts.py) のプロンプトと
-[`notifier/discord.py`](../notifier/discord.py) のラベルを編集してください。
+ほかの言語を追加するには、[`notifier/locales.py`](../notifier/locales.py) に言語名と
+Discord のラベルを追加してください。
 
 ## 費用
 

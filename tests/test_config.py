@@ -1,6 +1,7 @@
 import pytest
 
 from notifier.config import Config, ConfigError, load_config
+from notifier.locales import LOCALES
 
 BASE_ENV = {
     "GITHUB_REPOSITORY": "someone/fork",
@@ -28,6 +29,7 @@ def test_defaults() -> None:
         anthropic_api_key="sk-ant-secret",
         discord_webhook_url="https://discord.com/api/webhooks/1/secret",
         dry_run=False,
+        locale=LOCALES["zh-TW"],
     )
 
 
@@ -48,6 +50,7 @@ def test_overrides() -> None:
             CLAUDE_MODEL="claude-opus-5-5",
             STATE_BRANCH="my-state",
             DRY_RUN="true",
+            TARGET_LANGUAGE="ja",
         )
     )
 
@@ -57,6 +60,7 @@ def test_overrides() -> None:
     assert config.model == "claude-opus-5-5"
     assert config.state_branch == "my-state"
     assert config.dry_run is True
+    assert config.locale == LOCALES["ja"]
 
 
 @pytest.mark.parametrize(
@@ -120,3 +124,12 @@ def test_valid_state_branch(raw: str) -> None:
 def test_bad_state_branch_rejected(raw: str) -> None:
     with pytest.raises(ConfigError, match="STATE_BRANCH"):
         load_config(env(STATE_BRANCH=raw))
+
+
+def test_target_language_ignores_case() -> None:
+    assert load_config(env(TARGET_LANGUAGE="zh-cn")).locale == LOCALES["zh-CN"]
+
+
+def test_unknown_target_language_rejected() -> None:
+    with pytest.raises(ConfigError, match=r"TARGET_LANGUAGE must be one of zh-TW, zh-CN, ja, ko"):
+        load_config(env(TARGET_LANGUAGE="fr"))
