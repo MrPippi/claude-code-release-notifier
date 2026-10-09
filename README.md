@@ -1,65 +1,117 @@
 # claude-code-release-notifier
 
-![GitHub Actions](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/release-notifier.yml/badge.svg)
+[![CI](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/ci.yml/badge.svg)](https://github.com/MrPippi/claude-code-release-notifier/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Overview
+[繁體中文說明](docs/README.zh-TW.md)
 
-Monitors [anthropics/claude-code](https://github.com/anthropics/claude-code) releases (both stable and pre-release), translates release notes into Traditional Chinese via the Claude API, and sends formatted notifications to a Discord channel.
+Watches [anthropics/claude-code](https://github.com/anthropics/claude-code) releases,
+translates the release notes into Traditional Chinese with the Claude API, and posts them
+to a Discord channel. It runs entirely on GitHub Actions in your own fork: no server, no
+database.
 
-## Features
+## How it works
 
-- Monitors both stable and pre-release versions
-- Translates release notes to Traditional Chinese via Claude API
-- Sends formatted Discord Embed with Anthropic branding
-- Skips duplicate notifications using GitHub Repository Variables
-- Supports manual trigger via `workflow_dispatch`
+Every hour the workflow:
 
-## Prerequisites
+1. Lists recent releases of the watched repository.
+2. Picks every release published since the last one it announced, oldest first, up to
+   `MAX_RELEASES_PER_RUN`.
+3. Translates each one with Claude and posts it to Discord as an embed.
+4. Records the release in `state.json` on the `notifier-state` branch.
 
-- Anthropic API Key
-- Discord Webhook URL
-- GitHub repository with Actions enabled
+The first run has no previous state, so it posts only the newest release instead of the
+whole history. State lives on its own branch, so notifications never add commits to `main`.
 
-## Setup
+## Set up your own copy
 
-### Step 1: Fork or clone this repository
+You need an [Anthropic API key](https://console.anthropic.com/) and a Discord channel
+where you can create webhooks.
+
+### 1. Fork this repository
+
+Click **Fork**, then open the **Actions** tab of your fork and enable workflows.
+
+### 2. Create a Discord webhook
+
+In Discord, open the channel's **Edit Channel → Integrations → Webhooks**, click
+**New Webhook**, and copy its URL.
+
+### 3. Add secrets
+
+In your fork go to **Settings → Secrets and variables → Actions → Secrets** and add:
+
+| Secret | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
+| `DISCORD_WEBHOOK_URL` | The webhook URL from step 2 |
+
+Or with the GitHub CLI:
 
 ```bash
-git clone https://github.com/<OWNER>/claude-code-release-notifier.git
+gh secret set ANTHROPIC_API_KEY -R <you>/claude-code-release-notifier
+gh secret set DISCORD_WEBHOOK_URL -R <you>/claude-code-release-notifier
 ```
 
-### Step 2: Set Repository Secrets
+### 4. Do a dry run
 
-Go to **Settings > Secrets and variables > Actions > Secrets** and add:
+Open **Actions → Release Notifier → Run workflow**, leave **dry_run** checked, and run
+it. The log shows the translated embed for the newest release. Nothing is posted and no
+state is saved.
 
-| Secret | Description |
-|--------|-------------|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `DISCORD_WEBHOOK_URL` | Your Discord channel webhook URL |
+### 5. Turn it on
 
-### Step 3: Set Repository Variables
+Under **Settings → Secrets and variables → Actions → Variables**, add
+`NOTIFIER_ENABLED` with the value `true`. The hourly schedule now posts new releases.
+To pause it, delete the variable or set it to anything else.
 
-Go to **Settings > Secrets and variables > Actions > Variables** and add:
+## Configuration
 
-| Variable | Description |
-|----------|-------------|
-| `LAST_NOTIFIED_TAG` | Leave empty for initial setup |
+All variables are optional except `NOTIFIER_ENABLED`, which is needed for scheduled
+runs. Empty values use the default.
 
-### Step 4: Enable GitHub Actions
+| Variable | Default | Description |
+|---|---|---|
+| `NOTIFIER_ENABLED` | *(unset)* | `true` enables the hourly schedule |
+| `SOURCE_REPO` | `anthropics/claude-code` | Repository to watch, as `owner/name` |
+| `INCLUDE_PRERELEASES` | `true` | Also announce pre-releases |
+| `MAX_RELEASES_PER_RUN` | `5` | Most releases announced per run (1–20). Any extra go out on the next run |
+| `CLAUDE_MODEL` | `claude-sonnet-5-5` | Claude model used for translation |
+| `STATE_BRANCH` | `notifier-state` | Branch that stores `state.json` |
 
-Go to **Actions** tab and enable workflows for this repository.
+To translate into another language, edit the prompts in
+[`notifier/prompts.py`](notifier/prompts.py) and the labels in
+[`notifier/discord.py`](notifier/discord.py).
 
-## Discord Webhook Setup
+## Costs
 
-1. Open your Discord server and navigate to the target channel
-2. Click **Edit Channel** (gear icon) > **Integrations** > **Webhooks**
-3. Click **New Webhook**, give it a name, and copy the webhook URL
-4. Paste the URL into the `DISCORD_WEBHOOK_URL` repository secret
+GitHub Actions is free for public repositories. Each announced release is one Claude API
+request, billed to your Anthropic account. Runs with no new release don't call Claude.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `::error::ANTHROPIC_API_KEY is required but not set` | Add the secret (step 3) |
+| `::error::DISCORD_WEBHOOK_URL is required but not set` | Add the secret, or run with **dry_run** |
+| `Creating state branch (...) failed with HTTP 403` | **Settings → Actions → General → Workflow permissions** must allow read and write, or the workflow's `contents: write` permission was removed |
+| Scheduled runs are skipped | Set `NOTIFIER_ENABLED` to `true`. GitHub also pauses schedules in repositories with no activity for 60 days; re-enable the workflow in the Actions tab |
+| You want to re-announce a release | Edit or delete `state.json` on the `notifier-state` branch. Deleting it makes the next run announce only the newest release |
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+
+```bash
+pip install -r requirements-dev.txt
+ruff check . && ruff format --check .
+pytest --cov=notifier
+```
+
+## Security
+
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-[繁體中文說明](docs/README.zh-TW.md)
+[MIT](LICENSE)
